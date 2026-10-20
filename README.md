@@ -21,5 +21,19 @@ the server's default thread count; pass `serve <model dir> [--threads N]
 Every push to `main` is tagged `main-<sha>-<unix time>`; a `vX.Y.Z` tag is
 published as `X.Y.Z`. `linux/amd64` only.
 
+## Helm
+
+Each `vX.Y.Z` tag also publishes the chart in `charts/jevhouse` at the same
+version, without the `v`.
+
+```shell
+helm install jevhouse oci://ghcr.io/mikluko/charts/jevhouse --version X.Y.Z
+```
+
+No value is required. `model.name` is the model the server loads: an init
+container downloads its files from the Hugging Face repository of that name
+under `model.repository` into an `emptyDir`, on every pod start. Every value is
+described in [`values.yaml`](charts/jevhouse/values.yaml).
+
 The image's own files are MIT. The jev-at-home code is MIT; the model
 weights are CC BY-NC 4.0 and are not in the image.

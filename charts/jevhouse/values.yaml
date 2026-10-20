@@ -1,0 +1,63 @@
+image:
+  # Image of the server.
+  repository: ghcr.io/mikluko/jevhouse
+  # Image tag; the chart's appVersion when empty.
+  tag: ""
+  # Pull policy of the image.
+  pullPolicy: IfNotPresent
+
+# Image pull secrets of the pod.
+imagePullSecrets: []
+
+model:
+  # Directory under /models the server loads, and the name of its Hugging Face repository.
+  name: jevhome-B-int8
+  # Base URL the files are downloaded from, as <repository>/<name>/resolve/main/<file>.
+  repository: https://huggingface.co/jevhome
+  # Files of the model directory.
+  files:
+    - calibration_u.json
+    - config.json
+    - decision_config.json
+    - model.onnx
+    - tokenizer.json
+    - tokenizer_config.json
+  image:
+    # Image of the init container that downloads the model.
+    repository: curlimages/curl
+    # Tag of that image.
+    tag: "8.17.0"
+    # Pull policy of that image.
+    pullPolicy: IfNotPresent
+
+server:
+  # CPU threads one decision uses.
+  threads: 4
+  # Port the server listens on.
+  port: 8009
+
+# Replicas of the server; each downloads and loads its own copy of the model.
+replicas: 1
+
+# Resources of the server container.
+resources: {}
+
+# Node selector of the pod; the image is linux/amd64 only.
+nodeSelector:
+  kubernetes.io/arch: amd64
+
+# Tolerations of the pod.
+tolerations: []
+
+# Affinity of the pod.
+affinity: {}
+
+# Annotations of the pod.
+podAnnotations: {}
+
+# Labels of the pod.
+podLabels: {}
+
+service:
+  # Port of the Service.
+  port: 8009

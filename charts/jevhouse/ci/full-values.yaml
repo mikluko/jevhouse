@@ -1,0 +1,20 @@
+model:
+  name: jevhome-L-int8
+server:
+  threads: 8
+replicas: 2
+resources:
+  requests:
+    cpu: 7500m
+    memory: 4Gi
+  limits:
+    memory: 6Gi
+tolerations:
+  - key: example.com/dedicated
+    operator: Equal
+    value: inference
+    effect: NoSchedule
+podAnnotations:
+  example.com/owner: inference
+service:
+  port: 80

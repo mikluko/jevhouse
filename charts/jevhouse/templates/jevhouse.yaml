@@ -1,0 +1,125 @@
+{{- $m := .Values.model }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "jevhouse.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "jevhouse.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "jevhouse.selector" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: model
+          image: {{ $m.image.repository }}:{{ $m.image.tag }}
+          imagePullPolicy: {{ $m.image.pullPolicy }}
+          command: [/bin/sh, -c]
+          args:
+            - |
+              set -eu
+              mkdir -p "/models/$MODEL_NAME"
+              for f in $MODEL_FILES; do
+                curl -sSfL -o "/models/$MODEL_NAME/$f" "$MODEL_REPOSITORY/$MODEL_NAME/resolve/main/$f"
+              done
+          env:
+            - name: MODEL_NAME
+              value: {{ $m.name | quote }}
+            - name: MODEL_REPOSITORY
+              value: {{ $m.repository | trimSuffix "/" | quote }}
+            - name: MODEL_FILES
+              value: {{ join " " $m.files | quote }}
+          securityContext:
+            {{- include "jevhouse.securityContext" . | nindent 12 }}
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      containers:
+        - name: jevhouse
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - serve
+            - /models/{{ $m.name }}
+            - --host
+            - 0.0.0.0
+            - --port
+            - {{ .Values.server.port | quote }}
+            - --threads
+            - {{ .Values.server.threads | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.port }}
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: http
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 15
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- include "jevhouse.securityContext" . | nindent 12 }}
+          volumeMounts:
+            - name: models
+              mountPath: /models
+              readOnly: true
+      volumes:
+        - name: models
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "jevhouse.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "jevhouse.selector" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
